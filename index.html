@@ -316,7 +316,7 @@ function sv(id,el){
   document.getElementById('v-'+id).classList.add('on');
   el.classList.add('on');
 }
-function s(id,v){ const el=document.getElementById(id); if(el) el.textContent=(v===undefined||v===null)?'—':String(v); }
+function set(id,v){ const el=document.getElementById(id); if(el) el.textContent=(v===undefined||v===null)?'—':String(v); }
 function pct(a,b){ return b>0?Math.round((a/b)*100)+'%':'—'; }
 function money(n){ if(!n) return '$0'; return n>=1000?'$'+Math.round(n/1000)+'k':'$'+n; }
 
@@ -389,59 +389,59 @@ async function loadData() {
     const loom = s.by_source.loom || {};
 
     // Overview - this week
-    s('tw-dc', tw.dc_booked); s('tw-sc', tw.sc_booked);
-    s('tw-cl', tw.closed); s('tw-meta', tw.meta);
-    s('tw-loom', tw.loom); s('tw-ns', tw.dc_noshow);
+    set('tw-dc', tw.dc_booked); set2('tw-sc', tw.sc_booked);
+    set('tw-cl', tw.closed); set2('tw-meta', tw.meta);
+    set('tw-loom', tw.loom); set2('tw-ns', tw.dc_noshow);
 
     // Overview - last week
-    s('lw-dc', lw.dc_booked); s('lw-sc', lw.sc_booked);
-    s('lw-cl', lw.closed); s('lw-meta', lw.meta);
-    s('lw-loom', lw.loom); s('lw-ns', lw.dc_noshow);
+    set('lw-dc', lw.dc_booked); set2('lw-sc', lw.sc_booked);
+    set('lw-cl', lw.closed); set2('lw-meta', lw.meta);
+    set('lw-loom', lw.loom); set2('lw-ns', lw.dc_noshow);
 
     // Overview - all time
-    s('at-dc', at.dc_booked); s('at-sc', at.sc_booked);
-    s('at-cl', at.closed); s('at-fu', at.fu_sql);
-    s('at-ld', (at.lost||0)+(at.dq||0));
+    set('at-dc', at.dc_booked); set2('at-sc', at.sc_booked);
+    set('at-cl', at.closed); set2('at-fu', at.fu_sql);
+    set('at-ld', (at.lost||0)+(at.dq||0));
 
     // Pipeline value
-    s('pv-act', money(data.stats.pipeline_value.active));
-    s('pv-cl', money(data.stats.pipeline_value.closed));
-    s('pv-ls', money(data.stats.pipeline_value.lost));
+    set('pv-act', money(data.stats.pipeline_value.active));
+    set('pv-cl', money(data.stats.pipeline_value.closed));
+    set('pv-ls', money(data.stats.pipeline_value.lost));
 
     // Funnel
     renderFunnel('funnel-card', buildFunnelStages(at), at.dc_booked||1);
 
     // Call 1
-    s('c1tw-bk', tw.dc_booked); s('c1tw-ns', tw.dc_noshow);
-    s('c1tw-ca', tw.dc_cancelled); s('c1tw-ad', tw.sc_booked);
-    s('c1lw-bk', lw.dc_booked); s('c1lw-ns', lw.dc_noshow);
-    s('c1lw-ca', lw.dc_cancelled); s('c1lw-ad', lw.sc_booked);
+    set('c1tw-bk', tw.dc_booked); set2('c1tw-ns', tw.dc_noshow);
+    set('c1tw-ca', tw.dc_cancelled); set2('c1tw-ad', tw.sc_booked);
+    set('c1lw-bk', lw.dc_booked); set2('c1lw-ns', lw.dc_noshow);
+    set('c1lw-ca', lw.dc_cancelled); set2('c1lw-ad', lw.sc_booked);
     const showRate = pct((at.dc_booked||0)-(at.dc_noshow||0)-(at.dc_cancelled||0), at.dc_booked||1);
-    s('c1at-bk', at.dc_booked); s('c1at-ns', at.dc_noshow);
-    s('c1at-nsp', pct(at.dc_noshow, at.dc_booked));
-    s('c1at-ca', at.dc_cancelled); s('c1at-sr', showRate);
-    s('c1at-ad', at.sc_booked); s('c1at-ns2', at.dc_noshow); s('c1at-ca2', at.dc_cancelled);
+    set('c1at-bk', at.dc_booked); set2('c1at-ns', at.dc_noshow);
+    set('c1at-nsp', pct(at.dc_noshow, at.dc_booked));
+    set('c1at-ca', at.dc_cancelled); set2('c1at-sr', showRate);
+    set('c1at-ad', at.sc_booked); set2('c1at-ns2', at.dc_noshow); set2('c1at-ca2', at.dc_cancelled);
 
     // Call 2
-    s('c2tw-bk', tw.sc_booked); s('c2tw-cl', tw.closed);
-    s('c2tw-fu', tw.fu_sql); s('c2tw-ns', tw.sc_noshow);
-    s('c2lw-bk', lw.sc_booked); s('c2lw-cl', lw.closed);
-    s('c2lw-fu', lw.fu_sql); s('c2lw-ns', lw.sc_noshow);
-    s('c2at-bk', at.sc_booked); s('c2at-cl', at.closed);
-    s('c2at-cr', pct(at.closed, at.sc_booked));
-    s('c2at-fu', at.fu_sql); s('c2at-cl2', at.closed);
-    s('c2at-fu2', at.fu_sql); s('c2at-ls', at.lost);
-    s('c2at-ns', at.sc_noshow); s('c2at-ca', at.sc_cancelled);
+    set('c2tw-bk', tw.sc_booked); set2('c2tw-cl', tw.closed);
+    set('c2tw-fu', tw.fu_sql); set2('c2tw-ns', tw.sc_noshow);
+    set('c2lw-bk', lw.sc_booked); set2('c2lw-cl', lw.closed);
+    set('c2lw-fu', lw.fu_sql); set2('c2lw-ns', lw.sc_noshow);
+    set('c2at-bk', at.sc_booked); set2('c2at-cl', at.closed);
+    set('c2at-cr', pct(at.closed, at.sc_booked));
+    set('c2at-fu', at.fu_sql); set2('c2at-cl2', at.closed);
+    set('c2at-fu2', at.fu_sql); set2('c2at-ls', at.lost);
+    set('c2at-ns', at.sc_noshow); set2('c2at-ca', at.sc_cancelled);
 
     // Meta this week / last week
     // We don't have per-source weekly breakdown yet, use totals
-    s('mtw-dc', tw.meta||0); s('mtw-sc', '—'); s('mtw-cl', '—'); s('mtw-ns', '—');
-    s('mlw-dc', lw.meta||0); s('mlw-sc', '—'); s('mlw-cl', '—'); s('mlw-ns', '—');
+    set('mtw-dc', tw.meta||0); set2('mtw-sc', '—'); set2('mtw-cl', '—'); set2('mtw-ns', '—');
+    set('mlw-dc', lw.meta||0); set2('mlw-sc', '—'); set2('mlw-cl', '—'); set2('mlw-ns', '—');
     renderFunnel('meta-funnel', buildFunnelStages(meta), meta.dc_booked||1);
 
     // Loom this week / last week
-    s('ltw-dc', tw.loom||0); s('ltw-sc', '—'); s('ltw-cl', '—'); s('ltw-ns', '—');
-    s('llw-dc', lw.loom||0); s('llw-sc', '—'); s('llw-cl', '—'); s('llw-ns', '—');
+    set('ltw-dc', tw.loom||0); set2('ltw-sc', '—'); set2('ltw-cl', '—'); set2('ltw-ns', '—');
+    set('llw-dc', lw.loom||0); set2('llw-sc', '—'); set2('llw-cl', '—'); set2('llw-ns', '—');
     renderFunnel('loom-funnel', buildFunnelStages(loom), loom.dc_booked||1);
 
     // Cohorts

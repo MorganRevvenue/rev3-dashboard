@@ -24,6 +24,7 @@ const STAGE_ID_MAP = {
 
 const VSL_STAGE_IDS = new Set(Object.keys(STAGE_ID_MAP));
 const LOOM_TAG = 'activity - instantly campaign - complete';
+const FEB_1_2026 = new Date('2026-02-01T00:00:00.000Z').getTime();
 
 function getWeekStart(date) {
   const d = new Date(date);
@@ -36,27 +37,33 @@ function getWeekStart(date) {
 
 function getCurrentWeekStart() { return getWeekStart(new Date()); }
 function getLastWeekStart() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
+  const d = new Date(); d.setDate(d.getDate() - 7);
   return getWeekStart(d);
 }
 
-// Fetch each VSL stage separately so we ONLY get VSL pipeline opps
-async function fetchStageOpportunities(stageId) {
+async function fetchAllOpportunities() {
   let all = [];
   let startAfterId = null;
   let hasMore = true;
   let pages = 0;
 
-  while (hasMore && pages < 20) {
-    let url = `${BASE}/opportunities/search?location_id=${LOCATION_ID}&limit=100&pipelineStageId=${stageId}`;
+  while (hasMore && pages < 50) {
+    let url = `${BASE}/opportunities/search?location_id=${LOCATION_ID}&limit=100`;
     if (startAfterId) url += `&startAfterId=${startAfterId}`;
-    
+
     const res = await fetch(url, { headers });
     const data = await res.json();
     const opps = data.opportunities || [];
-    all = all.concat(opps);
-    
+
+    // Filter to VSL stage IDs only AND after Feb 1 2026
+    const vslOpps = opps.filter(o => {
+      if (!VSL_STAGE_IDS.has(o.pipelineStageId)) return false;
+      const created = new Date(o.createdAt || 0).getTime();
+      return created >= FEB_1_2026;
+    });
+
+    all = all.concat(vslOpps);
+
     if (opps.length < 100) { hasMore = false; }
     else { startAfterId = opps[opps.length - 1].id; }
     pages++;
@@ -87,27 +94,12 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' };
 
   try {
-    // Fetch all VSL stages in parallel
-    const stageIds = Object.keys(STAGE_ID_MAP);
-    const stageResults = await Promise.all(stageIds.map(id => fetchStageOpportunities(id)));
-    
-    // Flatten and deduplicate
-    const allOpps = [];
-    const seen = new Set();
-    stageResults.forEach((opps, idx) => {
-      opps.forEach(opp => {
-        if (!seen.has(opp.id)) {
-          seen.add(opp.id);
-          allOpps.push({ ...opp, _stageKey: STAGE_ID_MAP[stageIds[idx]] });
-        }
-      });
-    });
+    const opportunities = await fetchAllOpportunities();
 
-    // Fetch contact info in batches of 15
-    const contactIds = [...new Set(allOpps.map(o => o.contactId).filter(Boolean))];
+    // Fetch contacts in batches of 15
+    const contactIds = [...new Set(opportunities.map(o => o.contactId).filter(Boolean))];
     const contactData = {};
     const batchSize = 15;
-    
     for (let i = 0; i < contactIds.length; i += batchSize) {
       const batch = contactIds.slice(i, i + batchSize);
       const results = await Promise.all(batch.map(id => fetchContactInfo(id)));
@@ -131,13 +123,8 @@ exports.handler = async (event) => {
       pipeline_value: { active: 0, closed: 0, lost: 0 }
     };
 
-    const FEB_1 = new Date('2026-02-01T00:00:00.000Z').getTime();
-    allOpps.forEach(opp => {
-      // Only track leads from Feb 1 2026 onwards
-      const oppDate = new Date(opp.createdAt || Date.now()).getTime();
-      if (oppDate < FEB_1) return;
-
-      const stageKey = opp._stageKey;
+    opportunities.forEach(opp => {
+      const stageKey = STAGE_ID_MAP[opp.pipelineStageId];
       if (!stageKey) return;
 
       const cd = contactData[opp.contactId] || { tags: [], utmSource: '' };

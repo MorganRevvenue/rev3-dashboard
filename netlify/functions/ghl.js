@@ -8,82 +8,57 @@ const headers = {
   'Version': '2021-07-28'
 };
 
-// Fetch all opportunities with pagination
-async function fetchAllOpportunities() {
+// VSL Pipeline stage IDs mapped to dashboard keys
+const STAGE_ID_MAP = {
+  '4b850f35-eca8-4e6d-89f4-a2266ffa46f3': 'dc_booked',    // Discovery Call Booked
+  '272f0b1e-a1bb-4399-9ea5-4e3bd86f372c': 'dc_noshow',    // DC - No Show
+  'd01d76a9-a554-4768-8eb6-63c272451be0': 'dc_cancelled', // DC - Cancelled
+  'd0c088bc-0f95-41ce-87dc-ed6bf767c8ae': 'sc_booked',    // Strategy Call Booked
+  'c3895ca5-d69a-4260-872c-4a5801965c11': 'sc_noshow',    // SC - No Show
+  '9f62f019-43b6-4052-84dd-e8abb497e16e': 'sc_cancelled', // SC - Cancelled
+  'a0dc9a1c-e739-49bc-9e17-5af3f04db4e8': 'fu_sql',       // FU SQL
+  '00ebb025-e7cd-4817-94cb-d5025651a282': 'closed',       // Closed Sale
+  '398cf69d-dd87-4348-a37c-984aaa57d3f2': 'lost',         // Lost Sale
+  '3abe2905-4446-43b7-9c55-9509b842f11a': 'dq'            // DQ/NQL
+};
+
+const VSL_STAGE_IDS = new Set(Object.keys(STAGE_ID_MAP));
+
+const LOOM_TAG = 'activity - instantly campaign - complete';
+
+async function fetchVSLOpportunities() {
   let all = [];
-  let startAfter = null;
+  let startAfterId = null;
   let hasMore = true;
 
   while (hasMore) {
     let url = `${BASE}/opportunities/search?location_id=${LOCATION_ID}&limit=100`;
-    if (startAfter) url += `&startAfter=${startAfter}`;
-    
+    if (startAfterId) url += `&startAfterId=${startAfterId}`;
+
     const res = await fetch(url, { headers });
     const data = await res.json();
-    const opps = data.opportunities || [];
+    const opps = (data.opportunities || []).filter(o => VSL_STAGE_IDS.has(o.pipelineStageId));
     all = all.concat(opps);
-    
-    // GHL uses cursor-based pagination
-    if (opps.length < 100 || !data.meta?.nextPageUrl) {
+
+    const total = data.opportunities || [];
+    if (total.length < 100) {
       hasMore = false;
     } else {
-      startAfter = opps[opps.length - 1].id;
-      if (all.length > 5000) hasMore = false; // safety limit
+      startAfterId = total[total.length - 1].id;
+      if (all.length > 3000) hasMore = false;
     }
   }
   return all;
 }
 
-// Fetch pipelines to get stage IDs and names
-async function fetchPipelines() {
-  const res = await fetch(
-    `${BASE}/opportunities/pipelines?locationId=${LOCATION_ID}`,
-    { headers }
-  );
-  const data = await res.json();
-  return data.pipelines || [];
-}
-
-// Fetch contacts with pagination
-async function fetchAllContacts() {
-  let all = [];
-  let page = 1;
-  let hasMore = true;
-
-  while (hasMore) {
-    const res = await fetch(
-      `${BASE}/contacts/?locationId=${LOCATION_ID}&limit=100&page=${page}`,
-      { headers }
-    );
+async function fetchContact(contactId) {
+  try {
+    const res = await fetch(`${BASE}/contacts/${contactId}`, { headers });
     const data = await res.json();
-    const contacts = data.contacts || [];
-    all = all.concat(contacts);
-    hasMore = contacts.length === 100;
-    page++;
-    if (page > 50) hasMore = false; // safety limit
+    return data.contact || data || {};
+  } catch (e) {
+    return {};
   }
-  return all;
-}
-
-// Map stage name to dashboard key - handles em dashes and both pipelines
-function mapStage(stageName) {
-  if (!stageName) return 'other';
-  const s = stageName.toLowerCase().replace(/[–—]/g, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
-  if (s.includes('discovery') && s.includes('book')) return 'dc_booked';
-  if (s.includes('dc') && s.includes('no') && s.includes('show')) return 'dc_noshow';
-  if (s.includes('dc') && s.includes('cancel')) return 'dc_cancelled';
-  if (s.includes('discovery') && s.includes('no') && s.includes('show')) return 'dc_noshow';
-  if (s.includes('discovery') && s.includes('cancel')) return 'dc_cancelled';
-  if (s.includes('strategy') && s.includes('book')) return 'sc_booked';
-  if (s.includes('sc') && s.includes('no') && s.includes('show')) return 'sc_noshow';
-  if (s.includes('sc') && s.includes('cancel')) return 'sc_cancelled';
-  if (s.includes('strategy') && s.includes('no') && s.includes('show')) return 'sc_noshow';
-  if (s.includes('strategy') && s.includes('cancel')) return 'sc_cancelled';
-  if (s.includes('fu sql') || (s.includes('fu') && s.includes('sql'))) return 'fu_sql';
-  if (s.includes('closed sale')) return 'closed';
-  if (s.includes('lost sale') || s === 'lost') return 'lost';
-  if (s.includes('dq') || s.includes('nql')) return 'dq';
-  return 'other';
 }
 
 function getWeekStart(date) {
@@ -107,100 +82,72 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Fetch pipelines first to build stage ID -> name map
-    const pipelines = await fetchPipelines();
-    const stageMap = {}; // stageId -> stageName
-    let debugStages = [];
-    
-    pipelines.forEach(pipeline => {
-      (pipeline.stages || []).forEach(stage => {
-        stageMap[stage.id] = stage.name;
-        debugStages.push({ id: stage.id, name: stage.name, pipeline: pipeline.name });
-      });
-    });
+    const opportunities = await fetchVSLOpportunities();
 
-    // Fetch opportunities and contacts in parallel
-    const [opportunities, contacts] = await Promise.all([
-      fetchAllOpportunities(),
-      fetchAllContacts()
-    ]);
-
-    // Build contact lookup map
+    // Fetch contacts in batches
+    const contactIds = [...new Set(opportunities.map(o => o.contactId).filter(Boolean))];
     const contactMap = {};
-    contacts.forEach(c => { contactMap[c.id] = c; });
+    
+    // Fetch contacts in parallel batches of 20
+    const batchSize = 20;
+    for (let i = 0; i < contactIds.length; i += batchSize) {
+      const batch = contactIds.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(id => fetchContact(id)));
+      results.forEach((contact, idx) => {
+        if (contact) contactMap[batch[idx]] = contact;
+      });
+    }
 
-    const LOOM_TAG = 'activity - instantly campaign - complete';
+    const stageKeys = ['dc_booked','dc_noshow','dc_cancelled','sc_booked','sc_noshow','sc_cancelled','fu_sql','closed','lost','dq'];
+    
+    const emptyStage = () => Object.fromEntries(stageKeys.map(k => [k, 0]));
 
-    // Process each opportunity
-    const processed = opportunities.map(opp => {
+    const stats = {
+      total: 0,
+      by_stage: emptyStage(),
+      by_source: {
+        loom: emptyStage(),
+        meta: emptyStage(),
+        other: emptyStage()
+      },
+      by_week: {},
+      pipeline_value: { active: 0, closed: 0, lost: 0 }
+    };
+
+    opportunities.forEach(opp => {
+      const stageKey = STAGE_ID_MAP[opp.pipelineStageId];
+      if (!stageKey) return;
+
       const contact = contactMap[opp.contactId] || {};
       const tags = contact.tags || [];
-      
-      // Check UTM source for Meta leads
-      const utmSource = contact.attributionSource?.utmSource || 
-                        (contact.customFields || []).find(f => 
-                          f.name?.toLowerCase().includes('utm_source') || 
-                          f.fieldKey?.toLowerCase().includes('utm_source')
-                        )?.value || '';
+      const utmSource = contact.attributionSource?.utmSource ||
+        (contact.customFields || []).find(f =>
+          f.fieldKey?.toLowerCase().includes('utm_source') ||
+          f.name?.toLowerCase().includes('utm_source')
+        )?.value || '';
 
       const isLoom = tags.some(t => t.toLowerCase().trim() === LOOM_TAG.toLowerCase().trim());
       const isMeta = !isLoom && utmSource.toLowerCase().includes('facebook');
       const source = isLoom ? 'loom' : isMeta ? 'meta' : 'other';
 
-      // Get stage name from stageMap using pipelineStageId
-      const stageId = opp.pipelineStageId || opp.stageId || '';
-      const stageName = stageMap[stageId] || opp.pipelineStage?.name || opp.status || '';
-      
-      let stageKey;
-      if (opp.status === 'won') stageKey = 'closed';
-      else if (opp.status === 'lost') stageKey = 'lost';
-      else stageKey = mapStage(stageName);
-
-      const createdAt = new Date(opp.createdAt || contact.dateAdded || Date.now());
+      const createdAt = new Date(opp.createdAt || Date.now());
       const weekStart = getWeekStart(createdAt);
 
-      return {
-        id: opp.id,
-        source,
-        stage: stageName,
-        stageKey,
-        weekStart,
-        value: opp.monetaryValue || 0,
-        status: opp.status
-      };
-    });
+      stats.total++;
+      stats.by_stage[stageKey]++;
+      stats.by_source[source][stageKey]++;
 
-    // Aggregate stats
-    const stageKeys = ['dc_booked','dc_noshow','dc_cancelled','sc_booked','sc_noshow','sc_cancelled','fu_sql','closed','lost','dq','other'];
-    
-    const stats = {
-      total: processed.length,
-      by_stage: Object.fromEntries(stageKeys.map(k => [k, 0])),
-      by_source: { loom: Object.fromEntries(stageKeys.map(k => [k, 0])), meta: Object.fromEntries(stageKeys.map(k => [k, 0])), other: Object.fromEntries(stageKeys.map(k => [k, 0])) },
-      by_week: {},
-      pipeline_value: { active: 0, closed: 0, lost: 0 }
-    };
-
-    processed.forEach(opp => {
-      stats.by_stage[opp.stageKey] = (stats.by_stage[opp.stageKey] || 0) + 1;
-      
-      if (!stats.by_source[opp.source]) stats.by_source[opp.source] = Object.fromEntries(stageKeys.map(k => [k, 0]));
-      stats.by_source[opp.source][opp.stageKey] = (stats.by_source[opp.source][opp.stageKey] || 0) + 1;
-
-      if (!stats.by_week[opp.weekStart]) {
-        stats.by_week[opp.weekStart] = Object.fromEntries(stageKeys.map(k => [k, 0]));
-        stats.by_week[opp.weekStart].total = 0;
-        stats.by_week[opp.weekStart].loom = 0;
-        stats.by_week[opp.weekStart].meta = 0;
-        stats.by_week[opp.weekStart].other = 0;
+      if (!stats.by_week[weekStart]) {
+        stats.by_week[weekStart] = { ...emptyStage(), total: 0, loom: 0, meta: 0, other: 0 };
       }
-      stats.by_week[opp.weekStart].total++;
-      stats.by_week[opp.weekStart][opp.source]++;
-      stats.by_week[opp.weekStart][opp.stageKey] = (stats.by_week[opp.weekStart][opp.stageKey] || 0) + 1;
+      stats.by_week[weekStart].total++;
+      stats.by_week[weekStart][source]++;
+      stats.by_week[weekStart][stageKey]++;
 
-      if (opp.stageKey === 'closed') stats.pipeline_value.closed += opp.value;
-      else if (opp.stageKey === 'lost' || opp.stageKey === 'dq') stats.pipeline_value.lost += opp.value;
-      else stats.pipeline_value.active += opp.value;
+      const val = opp.monetaryValue || 0;
+      if (stageKey === 'closed') stats.pipeline_value.closed += val;
+      else if (stageKey === 'lost' || stageKey === 'dq') stats.pipeline_value.lost += val;
+      else stats.pipeline_value.active += val;
     });
 
     const sortedWeeks = Object.keys(stats.by_week).sort((a, b) => new Date(b) - new Date(a));
@@ -212,9 +159,8 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         ok: true,
         stats,
-        debugStages, // shows all stage names from GHL so we can verify mapping
         lastUpdated: new Date().toISOString(),
-        totalOpportunities: processed.length
+        totalOpportunities: stats.total
       })
     };
 

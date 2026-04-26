@@ -8,7 +8,6 @@ const headers = {
   'Version': '2021-07-28'
 };
 
-// VSL Pipeline stage IDs -> dashboard keys
 const STAGE_ID_MAP = {
   '4b850f35-eca8-4e6d-89f4-a2266ffa46f3': 'dc_booked',
   '272f0b1e-a1bb-4399-9ea5-4e3bd86f372c': 'dc_noshow',
@@ -34,47 +33,56 @@ function getWeekStart(date) {
   return d.toISOString().split('T')[0];
 }
 
-async function fetchVSLOpportunities() {
+function getCurrentWeekStart() {
+  return getWeekStart(new Date());
+}
+
+function getLastWeekStart() {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  return getWeekStart(d);
+}
+
+async function fetchAllVSLOpportunities() {
   let all = [];
   let startAfterId = null;
   let hasMore = true;
-  let pageCount = 0;
+  let pages = 0;
 
-  while (hasMore && pageCount < 30) {
+  while (hasMore && pages < 50) {
     let url = `${BASE}/opportunities/search?location_id=${LOCATION_ID}&limit=100`;
     if (startAfterId) url += `&startAfterId=${startAfterId}`;
-
     const res = await fetch(url, { headers });
     const data = await res.json();
     const opps = data.opportunities || [];
-    
-    // Only keep VSL pipeline opps
-    const vslOpps = opps.filter(o => VSL_STAGE_IDS.has(o.pipelineStageId));
-    all = all.concat(vslOpps);
-
-    if (opps.length < 100) {
-      hasMore = false;
-    } else {
-      startAfterId = opps[opps.length - 1].id;
-    }
-    pageCount++;
+    const vsl = opps.filter(o => VSL_STAGE_IDS.has(o.pipelineStageId));
+    all = all.concat(vsl);
+    if (opps.length < 100) { hasMore = false; }
+    else { startAfterId = opps[opps.length - 1].id; }
+    pages++;
   }
   return all;
 }
 
-// Fetch a single contact - only called for ambiguous source leads
-async function fetchContactTags(contactId) {
-  try {
-    const res = await fetch(`${BASE}/contacts/${contactId}`, { headers });
-    const data = await res.json();
-    const contact = data.contact || data || {};
-    return {
-      tags: contact.tags || [],
-      utmSource: contact.attributionSource?.utmSource || ''
-    };
-  } catch (e) {
-    return { tags: [], utmSource: '' };
-  }
+async function fetchContactBatch(ids) {
+  // Use search endpoint to get multiple contacts at once
+  const results = {};
+  await Promise.all(ids.map(async (id) => {
+    try {
+      const res = await fetch(`${BASE}/contacts/${id}`, { headers });
+      const data = await res.json();
+      const c = data.contact || data || {};
+      results[id] = {
+        tags: c.tags || [],
+        utmSource: c.attributionSource?.utmSource || 
+          (c.customFields || []).find(f => 
+            f.fieldKey?.toLowerCase().includes('utm_source'))?.value || ''
+      };
+    } catch(e) {
+      results[id] = { tags: [], utmSource: '' };
+    }
+  }));
+  return results;
 }
 
 exports.handler = async (event) => {
@@ -83,32 +91,36 @@ exports.handler = async (event) => {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json'
   };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' };
 
   try {
-    const opportunities = await fetchVSLOpportunities();
-
-    // Get unique contact IDs - fetch in parallel batches of 10
-    const contactIds = [...new Set(opportunities.map(o => o.contactId).filter(Boolean))];
-    const contactData = {};
+    const opportunities = await fetchAllVSLOpportunities();
     
-    const batchSize = 10;
-    for (let i = 0; i < contactIds.length && i < 200; i += batchSize) {
+    // Get unique contact IDs
+    const contactIds = [...new Set(opportunities.map(o => o.contactId).filter(Boolean))];
+    
+    // Fetch contacts in parallel batches of 15 (fast enough, won't timeout)
+    const contactData = {};
+    const batchSize = 15;
+    for (let i = 0; i < contactIds.length; i += batchSize) {
       const batch = contactIds.slice(i, i + batchSize);
-      const results = await Promise.all(batch.map(id => fetchContactTags(id)));
-      batch.forEach((id, idx) => { contactData[id] = results[idx]; });
+      const results = await fetchContactBatch(batch);
+      Object.assign(contactData, results);
     }
 
     const stageKeys = ['dc_booked','dc_noshow','dc_cancelled','sc_booked','sc_noshow','sc_cancelled','fu_sql','closed','lost','dq'];
     const emptyStage = () => Object.fromEntries(stageKeys.map(k => [k, 0]));
+    const emptyWeek = () => ({ ...emptyStage(), total: 0, loom: 0, meta: 0, other: 0 });
+
+    const thisWeek = getCurrentWeekStart();
+    const lastWeek = getLastWeekStart();
 
     const stats = {
       total: 0,
       by_stage: emptyStage(),
       by_source: { loom: emptyStage(), meta: emptyStage(), other: emptyStage() },
+      this_week: emptyWeek(),
+      last_week: emptyWeek(),
       by_week: {},
       pipeline_value: { active: 0, closed: 0, lost: 0 }
     };
@@ -124,17 +136,32 @@ exports.handler = async (event) => {
 
       const weekStart = getWeekStart(opp.createdAt || Date.now());
 
+      // All time
       stats.total++;
       stats.by_stage[stageKey]++;
       stats.by_source[source][stageKey]++;
 
-      if (!stats.by_week[weekStart]) {
-        stats.by_week[weekStart] = { ...emptyStage(), total: 0, loom: 0, meta: 0, other: 0 };
+      // This week
+      if (weekStart === thisWeek) {
+        stats.this_week.total++;
+        stats.this_week[source]++;
+        stats.this_week[stageKey]++;
       }
+
+      // Last week
+      if (weekStart === lastWeek) {
+        stats.last_week.total++;
+        stats.last_week[source]++;
+        stats.last_week[stageKey]++;
+      }
+
+      // By week cohort
+      if (!stats.by_week[weekStart]) stats.by_week[weekStart] = emptyWeek();
       stats.by_week[weekStart].total++;
       stats.by_week[weekStart][source]++;
       stats.by_week[weekStart][stageKey]++;
 
+      // Pipeline value
       const val = opp.monetaryValue || 0;
       if (stageKey === 'closed') stats.pipeline_value.closed += val;
       else if (stageKey === 'lost' || stageKey === 'dq') stats.pipeline_value.lost += val;
@@ -142,14 +169,14 @@ exports.handler = async (event) => {
     });
 
     const sortedWeeks = Object.keys(stats.by_week).sort((a, b) => new Date(b) - new Date(a));
-    stats.recent_weeks = sortedWeeks.slice(0, 8).map(w => ({ week: w, ...stats.by_week[w] }));
+    stats.recent_weeks = sortedWeeks.slice(0, 10).map(w => ({ week: w, ...stats.by_week[w] }));
 
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
-        ok: true,
-        stats,
+        ok: true, stats,
+        thisWeek, lastWeek,
         lastUpdated: new Date().toISOString(),
         totalOpportunities: stats.total
       })

@@ -316,7 +316,7 @@ function sv(id,el){
   document.getElementById('v-'+id).classList.add('on');
   el.classList.add('on');
 }
-function set(id,v){ const el=document.getElementById(id); if(el) el.textContent=(v===undefined||v===null)?'—':String(v); }
+function S(id,v){ const el=document.getElementById(id); if(el) el.textContent=(v===undefined||v===null)?'—':String(v); }
 function pct(a,b){ return b>0?Math.round((a/b)*100)+'%':'—'; }
 function money(n){ if(!n) return '$0'; return n>=1000?'$'+Math.round(n/1000)+'k':'$'+n; }
 
@@ -381,71 +381,64 @@ async function loadData() {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'API error');
 
-    const s = data.stats;
-    const at = s.by_stage;
-    const tw = s.this_week;
-    const lw = s.last_week;
-    const meta = s.by_source.meta || {};
-    const loom = s.by_source.loom || {};
+    const stats = data.stats;
+    const at = stats.by_stage;
+    const tw = stats.this_week;
+    const lw = stats.last_week;
+    const meta = stats.by_source.meta || {};
+    const loom = stats.by_source.loom || {};
 
-    // Overview - this week
-    set('tw-dc', tw.dc_booked); set2('tw-sc', tw.sc_booked);
-    set('tw-cl', tw.closed); set2('tw-meta', tw.meta);
-    set('tw-loom', tw.loom); set2('tw-ns', tw.dc_noshow);
-
-    // Overview - last week
-    set('lw-dc', lw.dc_booked); set2('lw-sc', lw.sc_booked);
-    set('lw-cl', lw.closed); set2('lw-meta', lw.meta);
-    set('lw-loom', lw.loom); set2('lw-ns', lw.dc_noshow);
+    // Overview - this week vs last week
+    S('tw-dc', tw.dc_booked); S('tw-sc', tw.sc_booked);
+    S('tw-cl', tw.closed); S('tw-meta', tw.meta);
+    S('tw-loom', tw.loom); S('tw-ns', tw.dc_noshow);
+    S('lw-dc', lw.dc_booked); S('lw-sc', lw.sc_booked);
+    S('lw-cl', lw.closed); S('lw-meta', lw.meta);
+    S('lw-loom', lw.loom); S('lw-ns', lw.dc_noshow);
 
     // Overview - all time
-    set('at-dc', at.dc_booked); set2('at-sc', at.sc_booked);
-    set('at-cl', at.closed); set2('at-fu', at.fu_sql);
-    set('at-ld', (at.lost||0)+(at.dq||0));
-
-    // Pipeline value
-    set('pv-act', money(data.stats.pipeline_value.active));
-    set('pv-cl', money(data.stats.pipeline_value.closed));
-    set('pv-ls', money(data.stats.pipeline_value.lost));
-
-    // Funnel
+    S('at-dc', at.dc_booked); S('at-sc', at.sc_booked);
+    S('at-cl', at.closed); S('at-fu', at.fu_sql);
+    S('at-ld', (at.lost||0)+(at.dq||0));
+    S('pv-act', money(stats.pipeline_value.active));
+    S('pv-cl', money(stats.pipeline_value.closed));
+    S('pv-ls', money(stats.pipeline_value.lost));
     renderFunnel('funnel-card', buildFunnelStages(at), at.dc_booked||1);
 
     // Call 1
-    set('c1tw-bk', tw.dc_booked); set2('c1tw-ns', tw.dc_noshow);
-    set('c1tw-ca', tw.dc_cancelled); set2('c1tw-ad', tw.sc_booked);
-    set('c1lw-bk', lw.dc_booked); set2('c1lw-ns', lw.dc_noshow);
-    set('c1lw-ca', lw.dc_cancelled); set2('c1lw-ad', lw.sc_booked);
-    const showRate = pct((at.dc_booked||0)-(at.dc_noshow||0)-(at.dc_cancelled||0), at.dc_booked||1);
-    set('c1at-bk', at.dc_booked); set2('c1at-ns', at.dc_noshow);
-    set('c1at-nsp', pct(at.dc_noshow, at.dc_booked));
-    set('c1at-ca', at.dc_cancelled); set2('c1at-sr', showRate);
-    set('c1at-ad', at.sc_booked); set2('c1at-ns2', at.dc_noshow); set2('c1at-ca2', at.dc_cancelled);
+    S('c1tw-bk', tw.dc_booked); S('c1tw-ns', tw.dc_noshow);
+    S('c1tw-ca', tw.dc_cancelled); S('c1tw-ad', tw.sc_booked);
+    S('c1lw-bk', lw.dc_booked); S('c1lw-ns', lw.dc_noshow);
+    S('c1lw-ca', lw.dc_cancelled); S('c1lw-ad', lw.sc_booked);
+    const showed = (at.dc_booked||0)-(at.dc_noshow||0)-(at.dc_cancelled||0);
+    S('c1at-bk', at.dc_booked); S('c1at-ns', at.dc_noshow);
+    S('c1at-nsp', pct(at.dc_noshow, at.dc_booked));
+    S('c1at-ca', at.dc_cancelled); S('c1at-sr', pct(showed, at.dc_booked));
+    S('c1at-ad', at.sc_booked); S('c1at-ns2', at.dc_noshow); S('c1at-ca2', at.dc_cancelled);
 
     // Call 2
-    set('c2tw-bk', tw.sc_booked); set2('c2tw-cl', tw.closed);
-    set('c2tw-fu', tw.fu_sql); set2('c2tw-ns', tw.sc_noshow);
-    set('c2lw-bk', lw.sc_booked); set2('c2lw-cl', lw.closed);
-    set('c2lw-fu', lw.fu_sql); set2('c2lw-ns', lw.sc_noshow);
-    set('c2at-bk', at.sc_booked); set2('c2at-cl', at.closed);
-    set('c2at-cr', pct(at.closed, at.sc_booked));
-    set('c2at-fu', at.fu_sql); set2('c2at-cl2', at.closed);
-    set('c2at-fu2', at.fu_sql); set2('c2at-ls', at.lost);
-    set('c2at-ns', at.sc_noshow); set2('c2at-ca', at.sc_cancelled);
+    S('c2tw-bk', tw.sc_booked); S('c2tw-cl', tw.closed);
+    S('c2tw-fu', tw.fu_sql); S('c2tw-ns', tw.sc_noshow);
+    S('c2lw-bk', lw.sc_booked); S('c2lw-cl', lw.closed);
+    S('c2lw-fu', lw.fu_sql); S('c2lw-ns', lw.sc_noshow);
+    S('c2at-bk', at.sc_booked); S('c2at-cl', at.closed);
+    S('c2at-cr', pct(at.closed, at.sc_booked));
+    S('c2at-fu', at.fu_sql); S('c2at-cl2', at.closed);
+    S('c2at-fu2', at.fu_sql); S('c2at-ls', at.lost);
+    S('c2at-ns', at.sc_noshow); S('c2at-ca', at.sc_cancelled);
 
-    // Meta this week / last week
-    // We don't have per-source weekly breakdown yet, use totals
-    set('mtw-dc', tw.meta||0); set2('mtw-sc', '—'); set2('mtw-cl', '—'); set2('mtw-ns', '—');
-    set('mlw-dc', lw.meta||0); set2('mlw-sc', '—'); set2('mlw-cl', '—'); set2('mlw-ns', '—');
+    // Meta
+    S('mtw-dc', tw.meta||0); S('mtw-sc', '—'); S('mtw-cl', '—'); S('mtw-ns', '—');
+    S('mlw-dc', lw.meta||0); S('mlw-sc', '—'); S('mlw-cl', '—'); S('mlw-ns', '—');
     renderFunnel('meta-funnel', buildFunnelStages(meta), meta.dc_booked||1);
 
-    // Loom this week / last week
-    set('ltw-dc', tw.loom||0); set2('ltw-sc', '—'); set2('ltw-cl', '—'); set2('ltw-ns', '—');
-    set('llw-dc', lw.loom||0); set2('llw-sc', '—'); set2('llw-cl', '—'); set2('llw-ns', '—');
+    // Loom
+    S('ltw-dc', tw.loom||0); S('ltw-sc', '—'); S('ltw-cl', '—'); S('ltw-ns', '—');
+    S('llw-dc', lw.loom||0); S('llw-sc', '—'); S('llw-cl', '—'); S('llw-ns', '—');
     renderFunnel('loom-funnel', buildFunnelStages(loom), loom.dc_booked||1);
 
     // Cohorts
-    renderCohorts(s.recent_weeks);
+    renderCohorts(stats.recent_weeks);
 
     dot.classList.remove('dead');
     const upd = new Date(data.lastUpdated);

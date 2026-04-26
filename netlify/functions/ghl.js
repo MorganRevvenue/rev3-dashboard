@@ -8,6 +8,7 @@ const headers = {
   'Version': '2021-07-28'
 };
 
+// VSL Pipeline stage IDs -> dashboard keys
 const STAGE_ID_MAP = {
   '4b850f35-eca8-4e6d-89f4-a2266ffa46f3': 'dc_booked',
   '272f0b1e-a1bb-4399-9ea5-4e3bd86f372c': 'dc_noshow',
@@ -33,30 +34,29 @@ function getWeekStart(date) {
   return d.toISOString().split('T')[0];
 }
 
-function getCurrentWeekStart() {
-  return getWeekStart(new Date());
-}
-
+function getCurrentWeekStart() { return getWeekStart(new Date()); }
 function getLastWeekStart() {
   const d = new Date();
   d.setDate(d.getDate() - 7);
   return getWeekStart(d);
 }
 
-async function fetchAllVSLOpportunities() {
+// Fetch each VSL stage separately so we ONLY get VSL pipeline opps
+async function fetchStageOpportunities(stageId) {
   let all = [];
   let startAfterId = null;
   let hasMore = true;
   let pages = 0;
 
-  while (hasMore && pages < 50) {
-    let url = `${BASE}/opportunities/search?location_id=${LOCATION_ID}&limit=100`;
+  while (hasMore && pages < 20) {
+    let url = `${BASE}/opportunities/search?location_id=${LOCATION_ID}&limit=100&pipelineStageId=${stageId}`;
     if (startAfterId) url += `&startAfterId=${startAfterId}`;
+    
     const res = await fetch(url, { headers });
     const data = await res.json();
     const opps = data.opportunities || [];
-    const vsl = opps.filter(o => VSL_STAGE_IDS.has(o.pipelineStageId));
-    all = all.concat(vsl);
+    all = all.concat(opps);
+    
     if (opps.length < 100) { hasMore = false; }
     else { startAfterId = opps[opps.length - 1].id; }
     pages++;
@@ -64,25 +64,18 @@ async function fetchAllVSLOpportunities() {
   return all;
 }
 
-async function fetchContactBatch(ids) {
-  // Use search endpoint to get multiple contacts at once
-  const results = {};
-  await Promise.all(ids.map(async (id) => {
-    try {
-      const res = await fetch(`${BASE}/contacts/${id}`, { headers });
-      const data = await res.json();
-      const c = data.contact || data || {};
-      results[id] = {
-        tags: c.tags || [],
-        utmSource: c.attributionSource?.utmSource || 
-          (c.customFields || []).find(f => 
-            f.fieldKey?.toLowerCase().includes('utm_source'))?.value || ''
-      };
-    } catch(e) {
-      results[id] = { tags: [], utmSource: '' };
-    }
-  }));
-  return results;
+async function fetchContactInfo(contactId) {
+  try {
+    const res = await fetch(`${BASE}/contacts/${contactId}`, { headers });
+    const data = await res.json();
+    const c = data.contact || data || {};
+    return {
+      tags: c.tags || [],
+      utmSource: c.attributionSource?.utmSource ||
+        (c.customFields || []).find(f =>
+          f.fieldKey?.toLowerCase().includes('utm_source'))?.value || ''
+    };
+  } catch(e) { return { tags: [], utmSource: '' }; }
 }
 
 exports.handler = async (event) => {
@@ -94,18 +87,31 @@ exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' };
 
   try {
-    const opportunities = await fetchAllVSLOpportunities();
+    // Fetch all VSL stages in parallel
+    const stageIds = Object.keys(STAGE_ID_MAP);
+    const stageResults = await Promise.all(stageIds.map(id => fetchStageOpportunities(id)));
     
-    // Get unique contact IDs
-    const contactIds = [...new Set(opportunities.map(o => o.contactId).filter(Boolean))];
-    
-    // Fetch contacts in parallel batches of 15 (fast enough, won't timeout)
+    // Flatten and deduplicate
+    const allOpps = [];
+    const seen = new Set();
+    stageResults.forEach((opps, idx) => {
+      opps.forEach(opp => {
+        if (!seen.has(opp.id)) {
+          seen.add(opp.id);
+          allOpps.push({ ...opp, _stageKey: STAGE_ID_MAP[stageIds[idx]] });
+        }
+      });
+    });
+
+    // Fetch contact info in batches of 15
+    const contactIds = [...new Set(allOpps.map(o => o.contactId).filter(Boolean))];
     const contactData = {};
     const batchSize = 15;
+    
     for (let i = 0; i < contactIds.length; i += batchSize) {
       const batch = contactIds.slice(i, i + batchSize);
-      const results = await fetchContactBatch(batch);
-      Object.assign(contactData, results);
+      const results = await Promise.all(batch.map(id => fetchContactInfo(id)));
+      batch.forEach((id, idx) => { contactData[id] = results[idx]; });
     }
 
     const stageKeys = ['dc_booked','dc_noshow','dc_cancelled','sc_booked','sc_noshow','sc_cancelled','fu_sql','closed','lost','dq'];
@@ -125,8 +131,8 @@ exports.handler = async (event) => {
       pipeline_value: { active: 0, closed: 0, lost: 0 }
     };
 
-    opportunities.forEach(opp => {
-      const stageKey = STAGE_ID_MAP[opp.pipelineStageId];
+    allOpps.forEach(opp => {
+      const stageKey = opp._stageKey;
       if (!stageKey) return;
 
       const cd = contactData[opp.contactId] || { tags: [], utmSource: '' };
@@ -136,32 +142,26 @@ exports.handler = async (event) => {
 
       const weekStart = getWeekStart(opp.createdAt || Date.now());
 
-      // All time
       stats.total++;
       stats.by_stage[stageKey]++;
       stats.by_source[source][stageKey]++;
 
-      // This week
       if (weekStart === thisWeek) {
         stats.this_week.total++;
         stats.this_week[source]++;
         stats.this_week[stageKey]++;
       }
-
-      // Last week
       if (weekStart === lastWeek) {
         stats.last_week.total++;
         stats.last_week[source]++;
         stats.last_week[stageKey]++;
       }
 
-      // By week cohort
       if (!stats.by_week[weekStart]) stats.by_week[weekStart] = emptyWeek();
       stats.by_week[weekStart].total++;
       stats.by_week[weekStart][source]++;
       stats.by_week[weekStart][stageKey]++;
 
-      // Pipeline value
       const val = opp.monetaryValue || 0;
       if (stageKey === 'closed') stats.pipeline_value.closed += val;
       else if (stageKey === 'lost' || stageKey === 'dq') stats.pipeline_value.lost += val;
@@ -175,8 +175,7 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
-        ok: true, stats,
-        thisWeek, lastWeek,
+        ok: true, stats, thisWeek, lastWeek,
         lastUpdated: new Date().toISOString(),
         totalOpportunities: stats.total
       })

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rev3 Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#0f0f0e;color:#f0efe8;padding:20px 16px;font-size:14px}
+.wrap{max-width:820px;margin:0 auto}
+h1{font-size:20px;font-weight:600;letter-spacing:-.02em;margin-bottom:2px}
+.sub{font-size:12px;color:#5f5e58;margin-bottom:20px;letter-spacing:.02em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#4d9e3f;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:20px;padding:4px;background:#242422;border-radius:10px;width:fit-content}
+.tab{font-size:12px;font-weight:500;padding:5px 12px;border-radius:7px;border:none;background:transparent;color:#5f5e58;cursor:pointer;transition:all .15s}
+.tab:hover{color:#a8a79f}
+.tab.on{background:#2e2e2b;color:#f0efe8;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.view{display:none}.view.on{display:block}
+.sec{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#5f5e58;margin:20px 0 10px}
+.sec:first-child{margin-top:0}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.mc{background:#242422;border-radius:8px;padding:10px 12px;border:.5px solid rgba(255,255,255,.08)}
+.ml{font-size:10px;color:#5f5e58;margin-bottom:3px}
+.mv{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1;color:#f0efe8;transition:all .3s}
+.ms{font-size:10px;color:#5f5e58;margin-top:3px}
+.card{background:#242422;border-radius:10px;padding:14px 16px;border:.5px solid rgba(255,255,255,.08);margin-bottom:10px}
+.card:last-child{margin-bottom:0}
+.or{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.08);font-size:13px}
+.or:last-child{border-bottom:none}
+.ol{display:flex;align-items:center;gap:8px;color:#a8a79f;flex-wrap:wrap}
+.ov{font-weight:600;color:#f0efe8}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;display:inline-block}
+.fr{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.fl{font-size:11px;color:#5f5e58;width:150px;flex-shrink:0}
+.fbw{flex:1;height:22px;background:#2e2e2b;border-radius:6px;overflow:hidden}
+.fb{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;white-space:nowrap;min-width:20px;transition:width .6s ease}
+.fp{font-size:11px;color:#5f5e58;width:44px;text-align:right;flex-shrink:0}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+.bs{background:#1a3d15;color:#7dd87a}
+.bi{background:#0a2a42;color:#7ab8f0}
+.bw{background:#3d2a08;color:#e8a84a}
+.bd{background:#3d1515;color:#f08080}
+.bn{background:#2e2e2b;color:#5f5e58}
+.sp{font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;background:#2e2e2b;color:#5f5e58}
+.note{font-size:12px;color:#5f5e58;background:#2e2e2b;border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.6;border:.5px solid rgba(255,255,255,.08)}
+.note strong{color:#a8a79f;font-weight:500}
+.ngreen{font-size:12px;background:#1a3d15;border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.6;color:#7dd87a;border:.5px solid rgba(77,158,63,.2)}
+.namber{font-size:12px;background:#3d2a08;border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.6;color:#e8a84a;border:.5px solid rgba(184,122,26,.2)}
+.ch{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:8px}
+.ct{font-size:13px;font-weight:600;color:#f0efe8}
+.cd{font-size:11px;color:#5f5e58;margin-top:2px}
+.ai{font-size:13px;color:#a8a79f;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.08);display:flex;gap:8px;line-height:1.5;align-items:flex-start}
+.ai:last-child{border-bottom:none}
+.refresh-btn{font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;border:.5px solid rgba(255,255,255,.1);background:transparent;color:#5f5e58;cursor:pointer;transition:all .15s}
+.refresh-btn:hover{color:#a8a79f;border-color:rgba(255,255,255,.2)}
+.refresh-btn:disabled{opacity:.4;cursor:not-allowed}
+.error-banner{background:#3d1515;border:.5px solid rgba(204,68,68,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#f08080;display:none}
+.week-row{display:grid;grid-template-columns:100px repeat(6,1fr);gap:4px;padding:8px 0;border-bottom:.5px solid rgba(255,255,255,.06);font-size:12px;align-items:center}
+.week-row:last-child{border-bottom:none}
+.week-row.header{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#5f5e58;padding-bottom:8px}
+.week-val{text-align:center;font-weight:600;color:#f0efe8}
+.week-val.green{color:#4d9e3f}
+.week-val.red{color:#c44}
+.week-label{color:#a8a79f;font-weight:500}
+@media(max-width:520px){.g5{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}.fl{width:90px}.week-row{grid-template-columns:70px repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
+  <h1>Rev3 master dashboard</h1>
+  <button class="refresh-btn" id="refresh-btn" onclick="loadData()">↻ Refresh</button>
+</div>
+<div class="sub">
+  <span class="live-dot"></span>
+  <span id="last-updated">Connecting to GHL...</span>
+</div>
+
+<div id="error-banner" class="error-banner"></div>
+
+<div class="tabs">
+  <button class="tab on" onclick="sv('overview',this)">Overview</button>
+  <button class="tab" onclick="sv('call1',this)">Call 1</button>
+  <button class="tab" onclick="sv('call2',this)">Call 2</button>
+  <button class="tab" onclick="sv('vsl',this)">VSL</button>
+  <button class="tab" onclick="sv('loom',this)">Loom</button>
+  <button class="tab" onclick="sv('cohorts',this)">Cohorts</button>
+  <button class="tab" onclick="sv('actions',this)">Next actions</button>
+</div>
+
+<div id="v-overview" class="view on">
+  <div class="sec">Pipeline totals — all sources</div>
+  <div class="g5">
+    <div class="mc"><div class="ml">Discovery booked</div><div class="mv" id="s-dc-booked">—</div></div>
+    <div class="mc"><div class="ml">DC no-showed</div><div class="mv" id="s-dc-noshow">—</div></div>
+    <div class="mc"><div class="ml">Strategy booked</div><div class="mv" id="s-sc-booked">—</div></div>
+    <div class="mc"><div class="ml">Closed</div><div class="mv" id="s-closed" style="color:#4d9e3f">—</div></div>
+    <div class="mc"><div class="ml">Follow-up SQL</div><div class="mv" id="s-fusql" style="color:#b87a1a">—</div></div>
+  </div>
+  <div class="g4">
+    <div class="mc"><div class="ml">DC cancelled</div><div class="mv" id="s-dc-cancelled">—</div></div>
+    <div class="mc"><div class="ml">SC no-showed</div><div class="mv" id="s-sc-noshow">—</div></div>
+    <div class="mc"><div class="ml">SC cancelled</div><div class="mv" id="s-sc-cancelled">—</div></div>
+    <div class="mc"><div class="ml">DQ / NQL</div><div class="mv" id="s-dq" style="color:#c44">—</div></div>
+  </div>
+  <div class="sec">Full funnel</div>
+  <div class="card" id="funnel-card"><div style="color:#5f5e58;font-size:12px;padding:8px 0">Loading...</div></div>
+  <div class="sec">Pipeline value</div>
+  <div class="g3">
+    <div class="mc"><div class="ml">Active pipeline</div><div class="mv" id="s-val-active" style="font-size:16px">—</div></div>
+    <div class="mc"><div class="ml">Closed revenue</div><div class="mv" id="s-val-closed" style="font-size:16px;color:#4d9e3f">—</div></div>
+    <div class="mc"><div class="ml">Lost</div><div class="mv" id="s-val-lost" style="font-size:16px;color:#c44">—</div></div>
+  </div>
+</div>
+
+<div id="v-call1" class="view">
+  <div class="sec">Discovery call — all time</div>
+  <div class="g4">
+    <div class="mc"><div class="ml">Booked</div><div class="mv" id="c1-booked">—</div></div>
+    <div class="mc"><div class="ml">No-showed</div><div class="mv" id="c1-noshow" style="color:#c44">—</div></div>
+    <div class="mc"><div class="ml">Cancelled</div><div class="mv" id="c1-cancelled" style="color:#b87a1a">—</div></div>
+    <div class="mc"><div class="ml">Show rate</div><div class="mv" id="c1-show-rate" style="color:#4d9e3f">—</div></div>
+  </div>
+  <div class="card">
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Showed — Meta ads</div><div class="ov" id="c1-meta-showed">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Showed — loom</div><div class="ov" id="c1-loom-showed">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#c44"></span>No-showed</div><div class="ov" id="c1-noshow2">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#b87a1a"></span>Cancelled</div><div class="ov" id="c1-cancelled2">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#2a7abf"></span>Advanced to strategy call</div><div class="ov" id="c1-advanced">—</div></div>
+  </div>
+</div>
+
+<div id="v-call2" class="view">
+  <div class="sec">Strategy call — all time</div>
+  <div class="g4">
+    <div class="mc"><div class="ml">Booked</div><div class="mv" id="c2-booked">—</div></div>
+    <div class="mc"><div class="ml">No-showed</div><div class="mv" id="c2-noshow" style="color:#c44">—</div></div>
+    <div class="mc"><div class="ml">Cancelled</div><div class="mv" id="c2-cancelled" style="color:#b87a1a">—</div></div>
+    <div class="mc"><div class="ml">Close rate</div><div class="mv" id="c2-close-rate" style="color:#4d9e3f">—</div></div>
+  </div>
+  <div class="card">
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Closed</div><div class="ov" id="c2-closed">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#b87a1a"></span>Follow-up SQL</div><div class="ov" id="c2-fusql">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#c44"></span>Lost sale</div><div class="ov" id="c2-lost">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#5f5e58"></span>SC no-showed</div><div class="ov" id="c2-noshow2">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#5f5e58"></span>SC cancelled</div><div class="ov" id="c2-cancelled2">—</div></div>
+  </div>
+</div>
+
+<div id="v-vsl" class="view">
+  <div class="sec">Meta ads pipeline — all time</div>
+  <div class="g4">
+    <div class="mc"><div class="ml">DC booked</div><div class="mv" id="vsl-dc">—</div></div>
+    <div class="mc"><div class="ml">DC no-showed</div><div class="mv" id="vsl-noshow" style="color:#c44">—</div></div>
+    <div class="mc"><div class="ml">SC booked</div><div class="mv" id="vsl-sc">—</div></div>
+    <div class="mc"><div class="ml">Closed</div><div class="mv" id="vsl-closed" style="color:#4d9e3f">—</div></div>
+  </div>
+  <div class="card">
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Showed DC</div><div class="ov" id="vsl-showed-dc">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Advanced to SC</div><div class="ov" id="vsl-advanced">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#b87a1a"></span>Follow-up SQL</div><div class="ov" id="vsl-fusql">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#c44"></span>DQ / NQL</div><div class="ov" id="vsl-dq">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#c44"></span>Lost sale</div><div class="ov" id="vsl-lost">—</div></div>
+  </div>
+</div>
+
+<div id="v-loom" class="view">
+  <div class="sec">Automated loom pipeline — all time</div>
+  <div class="g4">
+    <div class="mc"><div class="ml">DC booked</div><div class="mv" id="loom-dc">—</div></div>
+    <div class="mc"><div class="ml">DC no-showed</div><div class="mv" id="loom-noshow" style="color:#c44">—</div></div>
+    <div class="mc"><div class="ml">SC booked</div><div class="mv" id="loom-sc">—</div></div>
+    <div class="mc"><div class="ml">Closed</div><div class="mv" id="loom-closed" style="color:#4d9e3f">—</div></div>
+  </div>
+  <div class="card">
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Showed DC</div><div class="ov" id="loom-showed-dc">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#4d9e3f"></span>Advanced to SC</div><div class="ov" id="loom-advanced">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#b87a1a"></span>Follow-up SQL</div><div class="ov" id="loom-fusql">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#c44"></span>DQ / NQL</div><div class="ov" id="loom-dq">—</div></div>
+    <div class="or"><div class="ol"><span class="dot" style="background:#c44"></span>Lost sale</div><div class="ov" id="loom-lost">—</div></div>
+  </div>
+  <div class="note"><strong>Phase 2:</strong> Instantly email stats (sends, opens, replies) coming next. <strong>Phase 3:</strong> Pitchlane webhook (video starts, completions, CTA clicks).</div>
+</div>
+
+<div id="v-cohorts" class="view">
+  <div class="sec">Weekly cohorts — by opt-in week</div>
+  <div class="card" id="cohorts-card"><div style="color:#5f5e58;font-size:12px;padding:8px 0">Loading cohort data...</div></div>
+</div>
+
+<div id="v-actions" class="view">
+  <div class="sec">Open items & next actions</div>
+  <div class="card">
+    <div class="ai"><span class="badge bd" style="flex-shrink:0">This week</span><div>7 close conversations (3 call 2s + 4 follow-ups) — track every outcome. Update pipeline stages in GHL and this dashboard auto-updates.</div></div>
+    <div class="ai"><span class="badge bd" style="flex-shrink:0">Today</span><div>Jeffrey Misky — discovery call today. Update stage in GHL after.</div></div>
+    <div class="ai"><span class="badge bd" style="flex-shrink:0">Tomorrow</span><div>Loom batch 2 lead 1 — follow-up scheduled. First potential loom close.</div></div>
+    <div class="ai"><span class="badge bw" style="flex-shrink:0">This week</span><div>Carl (loom batch 2 lead 3) — discovery call this week.</div></div>
+    <div class="ai"><span class="badge bw" style="flex-shrink:0">This week</span><div>Wallace, Marc, Michael — Apr 13 cohort discovery calls incoming.</div></div>
+    <div class="ai"><span class="badge bw" style="flex-shrink:0">Monitor</span><div>Loom batch 3 — 298 emails sent Apr 20. Watch for opens and bookings.</div></div>
+    <div class="ai"><span class="badge bn" style="flex-shrink:0">Phase 2</span><div>Connect Instantly API for loom email send / open / reply stats.</div></div>
+    <div class="ai"><span class="badge bn" style="flex-shrink:0">Phase 3</span><div>Connect Pitchlane webhook for video starts, completions, CTA clicks.</div></div>
+  </div>
+</div>
+
+</div>
+<script>
+function sv(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('v-'+id).classList.add('on');
+  el.classList.add('on');
+}
+function fmt(n){ return (n===undefined||n===null) ? '—' : n.toString(); }
+function pct(a,b){ return b>0 ? Math.round((a/b)*100)+'%' : '—'; }
+function money(n){ return n>=1000 ? '$'+Math.round(n/1000)+'k' : '$'+n; }
+function set(id,val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+
+function renderFunnel(s){
+  const total = Math.max(s.dc_booked||1, 1);
+  const stages=[
+    {label:'DC booked',val:s.dc_booked||0,bg:'#0a2a42',fg:'#7ab8f0'},
+    {label:'DC no-showed',val:s.dc_noshow||0,bg:'#3d1515',fg:'#f08080'},
+    {label:'DC cancelled',val:s.dc_cancelled||0,bg:'#3d2a08',fg:'#e8a84a'},
+    {label:'SC booked',val:s.sc_booked||0,bg:'#1a3d15',fg:'#7dd87a'},
+    {label:'SC no-showed',val:s.sc_noshow||0,bg:'#3d1515',fg:'#f08080'},
+    {label:'Follow-up SQL',val:s.fu_sql||0,bg:'#3d2a08',fg:'#e8a84a'},
+    {label:'Closed',val:s.closed||0,bg:'#1a3d15',fg:'#7dd87a'},
+    {label:'Lost / DQ',val:(s.lost||0)+(s.dq||0),bg:'#3d1515',fg:'#f08080'},
+  ];
+  document.getElementById('funnel-card').innerHTML = stages.map(st=>`
+    <div class="fr">
+      <div class="fl">${st.label}</div>
+      <div class="fbw"><div class="fb" style="width:${Math.max(4,Math.round((st.val/total)*100))}%;background:${st.bg};color:${st.fg}">${st.val}</div></div>
+      <div class="fp">${pct(st.val,total)}</div>
+    </div>`).join('');
+}
+
+function renderCohorts(weeks){
+  if(!weeks||!weeks.length){
+    document.getElementById('cohorts-card').innerHTML='<div style="color:#5f5e58;font-size:12px;padding:8px 0">No cohort data available yet.</div>';
+    return;
+  }
+  const header=`<div class="week-row header"><div>Week of</div><div style="text-align:center">Total</div><div style="text-align:center">Meta</div><div style="text-align:center">Loom</div><div style="text-align:center">SC</div><div style="text-align:center">Closed</div><div style="text-align:center">Lost/DQ</div></div>`;
+  const rows=weeks.map(w=>{
+    const label=new Date(w.week+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const lostdq=(w.lost||0)+(w.dq||0);
+    return `<div class="week-row">
+      <div class="week-label">${label}</div>
+      <div class="week-val">${w.total}</div>
+      <div class="week-val">${w.meta||0}</div>
+      <div class="week-val">${w.loom||0}</div>
+      <div class="week-val ${w.sc_booked>0?'green':''}">${w.sc_booked||0}</div>
+      <div class="week-val ${w.closed>0?'green':''}">${w.closed||0}</div>
+      <div class="week-val ${lostdq>0?'red':''}">${lostdq}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('cohorts-card').innerHTML=header+rows;
+}
+
+async function loadData(){
+  const btn=document.getElementById('refresh-btn');
+  btn.disabled=true; btn.textContent='↻ Loading...';
+  document.getElementById('last-updated').textContent='Loading...';
+  document.getElementById('error-banner').style.display='none';
+  try{
+    const res=await fetch('/.netlify/functions/ghl');
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error||'API error');
+    const s=data.stats.by_stage;
+    const meta=data.stats.by_source.meta||{};
+    const loom=data.stats.by_source.loom||{};
+    // Overview
+    set('s-dc-booked',fmt(s.dc_booked)); set('s-dc-noshow',fmt(s.dc_noshow));
+    set('s-sc-booked',fmt(s.sc_booked)); set('s-closed',fmt(s.closed));
+    set('s-fusql',fmt(s.fu_sql)); set('s-dc-cancelled',fmt(s.dc_cancelled));
+    set('s-sc-noshow',fmt(s.sc_noshow)); set('s-sc-cancelled',fmt(s.sc_cancelled));
+    set('s-dq',fmt(s.dq));
+    set('s-val-active',money(data.stats.pipeline_value.active));
+    set('s-val-closed',money(data.stats.pipeline_value.closed));
+    set('s-val-lost',money(data.stats.pipeline_value.lost));
+    renderFunnel(s);
+    // Call 1
+    const c1total=s.dc_booked||0;
+    const c1showed=c1total-(s.dc_noshow||0)-(s.dc_cancelled||0);
+    set('c1-booked',fmt(c1total)); set('c1-noshow',fmt(s.dc_noshow));
+    set('c1-cancelled',fmt(s.dc_cancelled)); set('c1-show-rate',pct(c1showed,c1total));
+    set('c1-meta-showed',fmt((meta.sc_booked||0)+(meta.fu_sql||0)+(meta.closed||0)+(meta.lost||0)));
+    set('c1-loom-showed',fmt((loom.sc_booked||0)+(loom.fu_sql||0)+(loom.closed||0)+(loom.lost||0)));
+    set('c1-noshow2',fmt(s.dc_noshow)); set('c1-cancelled2',fmt(s.dc_cancelled));
+    set('c1-advanced',fmt(s.sc_booked));
+    // Call 2
+    const c2total=s.sc_booked||1;
+    set('c2-booked',fmt(s.sc_booked)); set('c2-noshow',fmt(s.sc_noshow));
+    set('c2-cancelled',fmt(s.sc_cancelled)); set('c2-close-rate',pct(s.closed,c2total));
+    set('c2-closed',fmt(s.closed)); set('c2-fusql',fmt(s.fu_sql));
+    set('c2-lost',fmt(s.lost)); set('c2-noshow2',fmt(s.sc_noshow));
+    set('c2-cancelled2',fmt(s.sc_cancelled));
+    // VSL
+    set('vsl-dc',fmt(meta.dc_booked)); set('vsl-noshow',fmt(meta.dc_noshow));
+    set('vsl-sc',fmt(meta.sc_booked)); set('vsl-closed',fmt(meta.closed));
+    set('vsl-showed-dc',fmt((meta.sc_booked||0)+(meta.fu_sql||0)+(meta.closed||0)+(meta.lost||0)));
+    set('vsl-advanced',fmt(meta.sc_booked)); set('vsl-fusql',fmt(meta.fu_sql));
+    set('vsl-dq',fmt(meta.dq)); set('vsl-lost',fmt(meta.lost));
+    // Loom
+    set('loom-dc',fmt(loom.dc_booked)); set('loom-noshow',fmt(loom.dc_noshow));
+    set('loom-sc',fmt(loom.sc_booked)); set('loom-closed',fmt(loom.closed));
+    set('loom-showed-dc',fmt((loom.sc_booked||0)+(loom.fu_sql||0)+(loom.closed||0)+(loom.lost||0)));
+    set('loom-advanced',fmt(loom.sc_booked)); set('loom-fusql',fmt(loom.fu_sql));
+    set('loom-dq',fmt(loom.dq)); set('loom-lost',fmt(loom.lost));
+    // Cohorts
+    renderCohorts(data.stats.recent_weeks);
+    const updated=new Date(data.lastUpdated);
+    document.getElementById('last-updated').textContent='Live · Updated '+updated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  }catch(err){
+    const banner=document.getElementById('error-banner');
+    banner.style.display='block';
+    banner.textContent='Could not connect to GHL: '+err.message+'. Check your API key in Netlify environment variables.';
+    document.getElementById('last-updated').textContent='Connection failed';
+  }
+  btn.disabled=false; btn.textContent='↻ Refresh';
+}
+loadData();
+setInterval(loadData, 5*60*1000);
+</script>
+</body>
+</html>

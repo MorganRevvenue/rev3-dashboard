@@ -8,7 +8,7 @@ const headers = {
   'Version': '2021-07-28'
 };
 
-// VSL Pipeline stage IDs -> dashboard keys
+// VSL Pipeline stage IDs -> dashboard keys (DC Booked onwards only)
 const STAGE_ID_MAP = {
   '4b850f35-eca8-4e6d-89f4-a2266ffa46f3': 'dc_booked',
   '272f0b1e-a1bb-4399-9ea5-4e3bd86f372c': 'dc_noshow',
@@ -163,13 +163,22 @@ exports.handler = async (event) => {
     const sortedWeeks = Object.keys(stats.by_week).sort((a, b) => new Date(b) - new Date(a));
     stats.recent_weeks = sortedWeeks.slice(0, 10).map(w => ({ week: w, ...stats.by_week[w] }));
 
+    // Debug: collect unique stage IDs seen in opportunities
+    const seenStageIds = {};
+    opportunities.forEach(o => {
+      const sid = o.pipelineStageId || 'none';
+      seenStageIds[sid] = (seenStageIds[sid] || 0) + 1;
+    });
+
     return {
       statusCode: 200,
       headers: corsHeaders,
       body: JSON.stringify({
         ok: true, stats, thisWeek, lastWeek,
         lastUpdated: new Date().toISOString(),
-        totalOpportunities: stats.total
+        totalOpportunities: stats.total,
+        rawTotal: opportunities.length,
+        seenStageIds
       })
     };
 

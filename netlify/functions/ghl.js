@@ -131,7 +131,12 @@ exports.handler = async (event) => {
       pipeline_value: { active: 0, closed: 0, lost: 0 }
     };
 
+    const FEB_1 = new Date('2026-02-01T00:00:00.000Z').getTime();
     allOpps.forEach(opp => {
+      // Only track leads from Feb 1 2026 onwards
+      const oppDate = new Date(opp.createdAt || Date.now()).getTime();
+      if (oppDate < FEB_1) return;
+
       const stageKey = opp._stageKey;
       if (!stageKey) return;
 

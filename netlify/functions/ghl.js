@@ -65,20 +65,24 @@ async function fetchAllContacts() {
   return all;
 }
 
-// Map stage name to dashboard key using fuzzy matching
+// Map stage name to dashboard key - handles em dashes and both pipelines
 function mapStage(stageName) {
   if (!stageName) return 'other';
-  const s = stageName.toLowerCase().trim();
-  if (s.includes('discovery') && (s.includes('book') || s.includes('booked'))) return 'dc_booked';
-  if ((s.includes('dc') || s.includes('discovery')) && s.includes('no') && s.includes('show')) return 'dc_noshow';
-  if ((s.includes('dc') || s.includes('discovery')) && s.includes('cancel')) return 'dc_cancelled';
-  if ((s.includes('strategy') || s.includes('sc')) && (s.includes('book') || s.includes('booked'))) return 'sc_booked';
-  if ((s.includes('strategy') || s.includes('sc')) && s.includes('no') && s.includes('show')) return 'sc_noshow';
-  if ((s.includes('strategy') || s.includes('sc')) && s.includes('cancel')) return 'sc_cancelled';
-  if (s.includes('fu') || s.includes('follow') || s.includes('sql')) return 'fu_sql';
-  if (s.includes('closed sale') || s.includes('close')) return 'closed';
-  if (s.includes('lost')) return 'lost';
-  if (s.includes('dq') || s.includes('nql') || s.includes('disqualif')) return 'dq';
+  const s = stageName.toLowerCase().replace(/[–—]/g, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.includes('discovery') && s.includes('book')) return 'dc_booked';
+  if (s.includes('dc') && s.includes('no') && s.includes('show')) return 'dc_noshow';
+  if (s.includes('dc') && s.includes('cancel')) return 'dc_cancelled';
+  if (s.includes('discovery') && s.includes('no') && s.includes('show')) return 'dc_noshow';
+  if (s.includes('discovery') && s.includes('cancel')) return 'dc_cancelled';
+  if (s.includes('strategy') && s.includes('book')) return 'sc_booked';
+  if (s.includes('sc') && s.includes('no') && s.includes('show')) return 'sc_noshow';
+  if (s.includes('sc') && s.includes('cancel')) return 'sc_cancelled';
+  if (s.includes('strategy') && s.includes('no') && s.includes('show')) return 'sc_noshow';
+  if (s.includes('strategy') && s.includes('cancel')) return 'sc_cancelled';
+  if (s.includes('fu sql') || (s.includes('fu') && s.includes('sql'))) return 'fu_sql';
+  if (s.includes('closed sale')) return 'closed';
+  if (s.includes('lost sale') || s === 'lost') return 'lost';
+  if (s.includes('dq') || s.includes('nql')) return 'dq';
   return 'other';
 }
 
